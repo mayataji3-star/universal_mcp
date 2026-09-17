@@ -1,0 +1,46 @@
+﻿python : Processing request of type ListToolsRequest
+At line:1 char:1
++ python scripts\smoke_test.py 2>&1 | Out-File -FilePath docs\part4_dis ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Processing requ...istToolsRequest:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Processing request of type CallToolRequest
+Discovered MCP tools:
+[
+  "send_sms"
+]
+
+MCP tool result:
+{
+  "success": true,
+  "execution_mode": "simulation",
+  "notice": "No external API call or real SMS was sent.",
+  "provider_request": {
+    "method": "POST",
+    "url": "https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json",
+    "encoding": "application/x-www-form-urlencoded",
+    "data": {
+      "To": "+962790000000",
+      "From": "Example",
+      "Body": "Hello through MCP"
+    }
+  },
+  "sample_provider_response": {
+    "sid": "SM_SIMULATED_001",
+    "status": "queued",
+    "to": "+962790000000",
+    "error_code": null,
+    "error_message": null
+  },
+  "canonical_response": {
+    "provider": "twilio",
+    "message_id": "SM_SIMULATED_001",
+    "status": "pending",
+    "to": "+962790000000",
+    "provider_status": "queued",
+    "error": null
+  }
+}
+
+MCP smoke test passed.
