@@ -515,59 +515,72 @@ provider-specific logic, and tests.
 
 ---
 
-## Part 4 — LLM Consumption and Tool Discovery
+## Part 4 — LLM Experiments
 
-The existing `mcp-probe-groq` project provides the LLM host required for this
-part of the assessment. A new host is unnecessary because it already connects
-a Groq-hosted model to an MCP server, discovers the available tools, sends
-their schemas to the model, executes tool calls, and returns results to the
-model.
+The universal MCP server was tested with a Groq-hosted LLM to determine whether a model could discover and use its tools correctly. The complete output is saved in `experiments/experiment_results.txt`.
 
-### Tool Discovery
+### Experiment 1 — Capability Discovery
 
-The MCP client discovers tools from the server rather than relying on a
-hard-coded interface. The universal SMS server exposes:
+**Prediction:** The model would call `get_requirements` before `send_sms` when asked to check the requirements of a selected provider.
 
-- `get_requirements`
-- `send_sms`
+**Method:** The model was asked to prepare a MessageBird SMS and check relevant provider requirements. It had access to both `get_requirements` and `send_sms`.
 
-`get_requirements` provides provider-specific required fields, sender rules,
-recipient format, lifecycle information, and capabilities. This lets the
-`send_sms` schema remain stable while provider-specific guidance remains
-available when needed.
+**Observed result:** The model called `get_requirements` before calling `send_sms`. It then produced a successful simulated canonical response.
 
-### Recovery from Missing Information
+**Result:** PASS.
 
-The canonical layer returns structured validation errors rather than exposing
-unstructured provider errors. A structured error includes a stable code,
-human-readable message, validation details, and retryability information.
+**Interpretation:** A separate discovery tool allows the model to obtain provider-specific rules without making the shared `send_sms` schema excessively large.
 
-An LLM can use that response to correct information already available in the
-conversation or ask the user for a missing value. It should not invent missing
-business information.
+### Experiment 2 — Recovery from Missing Information
 
-### Shared Tool versus Provider-Specific Tools
+**Prediction:** After receiving a structured validation error, the model would identify the missing information and ask for it rather than inventing a value.
 
-One shared `send_sms` tool is preferable for genuinely common SMS behavior. It
-gives the model a smaller and more stable tool surface, while the validated
-`provider` argument selects the correct adapter.
+**Method:** The `send_sms` tool was called with an empty `sender` field. The server returned a structured `VALIDATION_ERROR` identifying `sender` as too short and marking the error as non-retryable until the request was corrected.
 
-Separate provider tools are appropriate only when a provider exposes an
-important operation that cannot be represented safely by the canonical model.
-Provider-specific extensions or dedicated tools should handle those cases
-instead of making the common schema excessively large.
+**Observed result:** The model correctly identified that the sender was missing, explained what type of sender was required, and stated that the request should be corrected before retrying. It did not invent a sender value.
 
-### Part 4 Finding
+**Result:** PASS.
 
-An LLM can consume the universal layer through normal MCP discovery and tool
-invocation. MCP solves exposure and discovery, but it does not eliminate
-provider differences.
+**Interpretation:** Structured errors are valuable for LLM consumers. They allow the model to understand why a request failed and recover safely without guessing missing business information.
 
-Reliable model behavior depends on clear tool descriptions, strict schemas,
-requirement discovery, structured errors, capability metadata, idempotency,
-and a limited tool surface.
+### Experiment 3 — Shared Tool versus Separate Provider Tools
 
----
+**Prediction:** One shared `send_sms` tool would provide a smaller and more stable tool surface, while separate provider tools could still be useful for provider-specific functionality.
+
+**Method:** Three prompts were tested for Twilio, Vonage, and MessageBird. Each prompt explicitly named the required provider. The model was tested once with the shared `send_sms` tool and once with three separate provider tools.
+
+**Observed result:**
+
+* Shared-tool design: 3/3 correct selections
+* Separate-tool design: 3/3 correct selections
+
+**Result:** PASS for both designs.
+
+**Limitation:** The prompts explicitly named the provider, making tool selection straightforward. Therefore, this experiment confirms that both designs work for explicit requests, but it does not prove that they are equally reliable for ambiguous or capability-based requests.
+
+Future tests should include prompts such as:
+
+* “Send this SMS using a provider that supports multiple recipients.”
+* “Send an SMS without specifying a provider.”
+* “Choose the most appropriate provider for this request.”
+
+**Interpretation:** The shared tool is preferable for genuinely common functionality because it gives the model fewer tools to evaluate and provides one stable interface. Separate tools remain appropriate when providers expose important capabilities that cannot be represented safely by the canonical model.
+
+### Part 4 Conclusion
+
+All three experiments passed.
+
+The strongest result was Experiment 2: the model successfully interpreted a structured error, identified the missing sender, and did not fabricate a value. This provides direct evidence that structured canonical errors improve safe LLM recovery.
+
+The experiments support a hybrid design consisting of:
+
+* One shared tool for common operations
+* Provider requirement and capability discovery
+* Strict validation
+* Structured errors
+* Provider-specific extensions or tools only when necessary
+
+
 
 ## Cost and Onboarding Estimate
 
