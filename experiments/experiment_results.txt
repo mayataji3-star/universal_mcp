@@ -1,0 +1,103 @@
+﻿python : Processing request of type ListToolsRequest
+At line:1 char:1
++ python experiments\run_experiments.py 2>&1 |
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Processing requ...istToolsRequest:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Model: llama-3.3-70b-versatile
+Discovered MCP tools:
+['get_requirements', 'send_sms']
+
+======================================================================
+EXPERIMENT 1: CAPABILITY DISCOVERY
+======================================================================
+Prompt:
+Prepare an SMS using MessageBird to +962790000000 from Example saying: Your appointment is tomorrow at 10 AM. Check any relevant provider requirements and use the available tools.
+  + Exception Group Traceback (most recent call last):
+  |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\experiments\run_experiments.py", line 481, in <module>
+  |     asyncio.run(main())
+  |     ~~~~~~~~~~~^^^^^^^^
+  |   File "C:\Users\23120057\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 195, in run
+  |     return runner.run(main)
+  |            ~~~~~~~~~~^^^^^^
+  |   File "C:\Users\23120057\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  |   File "C:\Users\23120057\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+  |     return future.result()
+  |            ~~~~~~~~~~~~~^^
+  |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\experiments\run_experiments.py", line 444, in main
+  |     async with stdio_client(server_parameters) as streams:
+  |                ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  |   File "C:\Users\23120057\AppData\Local\Programs\Python\Python313\Lib\contextlib.py", line 235, in __aexit__
+  |     await self.gen.athrow(value)
+  |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\mcp\client\stdio\__init__.py", line 183, in stdio_client
+  |     anyio.create_task_group() as tg,
+  |     ~~~~~~~~~~~~~~~~~~~~~~~^^
+  |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 847, in __aexit__
+  |     raise BaseExceptionGroup(
+  |         "unhandled errors in a TaskGroup", self._exceptions
+  |     ) from None
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\mcp\client\stdio\__init__.py", line 189, in stdio_client
+    |     yield read_stream, write_stream
+    |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\experiments\run_experiments.py", line 447, in main
+    |     async with ClientSession(read_stream, write_stream) as session:
+    |                ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\mcp\shared\session.py", line 238, in __aexit__
+    |     return await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 847, in __aexit__
+    |     raise BaseExceptionGroup(
+    |         "unhandled errors in a TaskGroup", self._exceptions
+    |     ) from None
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Traceback (most recent call last):
+      |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\experiments\run_experiments.py", line 457, in main
+      |     await experiment_1(
+      |     ...<3 lines>...
+      |     )
+      |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\experiments\run_experiments.py", line 166, in experiment_1
+      |     sequence, final_response = await run_agent(
+      |                                ^^^^^^^^^^^^^^^^
+      |     ...<4 lines>...
+      |     )
+      |     ^
+      |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\experiments\run_experiments.py", line 108, in run_agent
+      |     response = await client.chat.completions.create(
+      |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |     ...<5 lines>...
+      |     )
+      |     ^
+      |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\groq\resources\chat\completions.py", line 951, in create
+      |     return await self._post(
+      |            ^^^^^^^^^^^^^^^^^
+      |     ...<47 lines>...
+      |     )
+      |     ^
+      |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\groq\_base_client.py", line 1856, in post
+      |     return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+      |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      |   File "C:\Users\23120057\OneDrive - AL-Hussien bin Abdullah Technical 
+University\Desktop\universal_mcp\.venv\Lib\site-packages\groq\_base_client.py", line 1655, in request
+      |     raise self._make_status_error_from_response(err.response) from None
+      | groq.NotFoundError: Error code: 404 - {'error': {'message': 'The model `llama-3.3-70b-versatile` does not exist or you do not have 
+access to it.', 'type': 'invalid_request_error', 'code': 'model_not_found'}}
+      +------------------------------------
