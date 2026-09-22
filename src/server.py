@@ -116,6 +116,15 @@ def run_send_sms(
         "canonical_response": canonical_response.model_dump(),
     }
 
+@mcp.tool()
+def get_requirements(provider: str) -> dict[str, Any]:
+    """Get required fields, rules, and capabilities for an SMS provider.
+
+    Call this tool before send_sms when the selected provider's requirements
+    are unknown. Supported providers are twilio, vonage, and messagebird.
+    """
+
+    return get_provider_requirements(provider)
 
 @mcp.tool()
 def send_sms(
@@ -144,6 +153,103 @@ def send_sms(
         client_reference=client_reference,
     )
 
+
+
+
+PROVIDER_REQUIREMENTS = {
+    "twilio": {
+        "provider": "twilio",
+        "required_fields": [
+            "to",
+            "sender",
+            "message",
+        ],
+        "optional_fields": [
+            "client_reference",
+        ],
+        "recipient_format": "E.164 format beginning with '+'",
+        "sender_rules": (
+            "Use a Twilio-owned telephone number, approved sender ID, "
+            "or configured messaging service."
+        ),
+        "lifecycle": (
+            "The initial response may be queued. Final delivery can be "
+            "reported later through a status callback."
+        ),
+    },
+    "vonage": {
+        "provider": "vonage",
+        "required_fields": [
+            "to",
+            "sender",
+            "message",
+        ],
+        "optional_fields": [
+            "client_reference",
+        ],
+        "recipient_format": "International number beginning with '+'",
+        "sender_rules": (
+            "The sender may be a permitted telephone number or "
+            "alphanumeric sender ID."
+        ),
+        "lifecycle": (
+            "A successful initial status means the request was accepted, "
+            "not necessarily delivered."
+        ),
+    },
+    "messagebird": {
+        "provider": "messagebird",
+        "required_fields": [
+            "to",
+            "sender",
+            "message",
+        ],
+        "optional_fields": [
+            "client_reference",
+        ],
+        "recipient_format": "International number beginning with '+'",
+        "sender_rules": (
+            "The originator may be a telephone number or an alphanumeric "
+            "sender ID, subject to destination-country restrictions."
+        ),
+        "lifecycle": (
+            "Recipient delivery status may be updated after the initial "
+            "response."
+        ),
+        "provider_capabilities": {
+            "multiple_recipients": True,
+            "canonical_tool_multiple_recipients": False,
+        },
+    },
+}
+
+
+
+
+def get_provider_requirements(provider: str) -> dict[str, Any]:
+    """Return requirements and capabilities for one SMS provider."""
+
+    normalized_provider = provider.strip().lower()
+
+    requirements = PROVIDER_REQUIREMENTS.get(normalized_provider)
+
+    if requirements is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "UNSUPPORTED_PROVIDER",
+                "message": (
+                    f"Provider '{provider}' is not supported. "
+                    "Supported providers are twilio, vonage, and messagebird."
+                ),
+                "retryable": False,
+            },
+        }
+
+    return {
+        "success": True,
+        "requirements": requirements,
+    }
 
 if __name__ == "__main__":
     mcp.run()

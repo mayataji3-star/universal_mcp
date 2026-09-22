@@ -1,7 +1,5 @@
 """Tests for the universal send_sms routing service."""
-
-from src.server import run_send_sms
-
+from src.server import get_provider_requirements, run_send_sms
 
 def test_routes_to_twilio():
     result = run_send_sms(
@@ -73,3 +71,33 @@ def test_unsupported_provider_returns_structured_error():
 
     assert result["success"] is False
     assert result["error"]["code"] == "VALIDATION_ERROR"
+
+
+
+def test_get_twilio_requirements():
+    result = get_provider_requirements("twilio")
+
+    assert result["success"] is True
+    assert result["requirements"]["provider"] == "twilio"
+    assert "to" in result["requirements"]["required_fields"]
+    assert "sender" in result["requirements"]["required_fields"]
+    assert "message" in result["requirements"]["required_fields"]
+
+
+def test_get_messagebird_capabilities():
+    result = get_provider_requirements("messagebird")
+
+    assert result["success"] is True
+
+    capabilities = result["requirements"]["provider_capabilities"]
+
+    assert capabilities["multiple_recipients"] is True
+    assert capabilities["canonical_tool_multiple_recipients"] is False
+
+
+def test_get_requirements_rejects_unknown_provider():
+    result = get_provider_requirements("unknown-provider")
+
+    assert result["success"] is False
+    assert result["error"]["code"] == "UNSUPPORTED_PROVIDER"
+    assert result["error"]["retryable"] is False

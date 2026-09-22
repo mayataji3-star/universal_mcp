@@ -2,20 +2,51 @@
 
 ## Executive Summary
 
-**Status:** To be completed after the research and working spike.
+The proposed universal MCP layer is **viable under specific conditions**.
 
-The final executive summary will state whether the proposed universal MCP layer
-is viable, viable under specific conditions, or not viable. It will also provide
-a rough estimate of the effort required to onboard an additional company.
+The working spike demonstrated that one canonical MCP tool can expose the same
+business operation across providers with different API structures. A shared
+`send_sms` tool routed canonical requests through Twilio, Vonage, and
+MessageBird adapters and normalized their different response formats into one
+canonical response.
+
+However, the layer cannot accept an arbitrary API and automatically understand
+its business meaning. Every provider still requires a reviewed and tested
+adapter covering authentication, field mapping, request and response
+translation, status normalization, error handling, lifecycle behavior,
+capability differences, and ongoing maintenance.
+
+The recommended architecture is a domain-specific hybrid consisting of:
+
+- A stable canonical model for common functionality
+- One tested adapter per provider
+- Provider requirement and capability discovery
+- Structured canonical errors
+- Idempotency controls for write operations
+- Optional provider-specific extensions
+- A controlled passthrough mechanism for unsupported functionality
+- Automated contract, routing, and regression tests
+
+The original estimate of **24–40 working hours to onboard an additional
+provider** remains reasonable for a well-documented API of moderate complexity.
+Complex authentication, asynchronous workflows, regulatory requirements, poor
+documentation, or major capability differences would increase this estimate.
+
+The conclusion is therefore not that one MCP tool works automatically with
+every API. The conclusion is that one stable MCP interface can serve multiple
+providers when provider-specific complexity is deliberately handled behind
+that interface.
 
 ## Initial Prediction
 
-The prediction made before starting the research and implementation is preserved
+The prediction recorded before the research and implementation is preserved
 unchanged in [INITIAL_PREDICTION.md](INITIAL_PREDICTION.md).
 
 The initial prediction was that the system would be **viable under specific
 conditions**, with an estimated onboarding cost of **24–40 working hours per
 additional company**.
+
+The completed research and spike support that prediction.
 
 ---
 
@@ -23,657 +54,577 @@ additional company**.
 
 ### Research Method
 
-This part is based on documentation research. No vendor platform or ACORD
-integration was executed during this phase.
+This part is based on documentation research. The vendor platforms and ACORD
+standards discussed below were not installed or executed as part of the spike.
+The purpose of this research was to identify how existing systems solve the
+problem of exposing one interface over multiple different APIs.
 
-The working spike and executed experiments will be documented separately from
-the research findings.
+### 1. Domain Standards: ACORD
 
----
+ACORD provides insurance data standards for areas including Property and
+Casualty, Life and Annuity, and Global Reinsurance and Large Commercial
+insurance. Its Reference Architecture includes business processes, product
+models, an Information Model, a Data Model, and a Capability Model.
 
-### 1. Domain Standards
+This makes ACORD an important starting point for an insurance canonical model.
+The universal layer should evaluate ACORD concepts before inventing a new
+insurance vocabulary. However, ACORD is broader than the schema of one MCP
+operation such as `create_policy`. A project would still need to select the
+relevant concepts and design a smaller operational request and response model.
 
-#### ACORD Insurance Standards
+ACORD also does not eliminate provider adapters. Insurance companies may use
+different ACORD versions, subsets, workflows, interpretations, or completely
+custom APIs. Each company would still require mapping, authentication,
+workflow handling, testing, and maintenance.
 
-##### What I researched
+Some detailed ACORD packages and implementation resources may require
+membership or participation in an ACORD Standards program. Licensing and
+access requirements would therefore need to be confirmed before commercial
+use.
 
-I reviewed ACORD's official descriptions of its insurance data standards and
-Reference Architecture. The purpose was to determine whether insurance already
-has a common model that could be used by the universal MCP layer.
-
-This section is based on documentation research only. I have not implemented or
-executed an ACORD integration.
-
-##### What ACORD provides
-
-ACORD is an insurance industry standards organization. It provides data
-standards for several insurance sectors, including Property and Casualty, Life
-and Annuity, and Global Reinsurance and Large Commercial insurance.
-
-For Property and Casualty insurance, ACORD provides AL3 and XML standards. AL3
-is intended for one-way batch communication of policy and commission data,
-while the XML standards support real-time request-and-response transactions.
-
-ACORD also provides Next-Generation Digital Standards. These are granular,
-transaction-focused standards intended for modern interfaces such as REST APIs
-and microservices.
+**Finding:** ACORD can provide the semantic foundation for an insurance
+canonical model, but it does not make onboarding every insurance company
+automatic.
 
 Sources:
 
-* [ACORD Data Standards](https://www.acord.org/standards-architecture/acord-data-standards)
-* [ACORD Property and Casualty Data Standards](https://www.acord.org/standards-architecture/acord-data-standards/Property_Casualty_Data_Standards)
-* [ACORD Next-Generation Digital Standards announcement](https://www.acord.org/ACORD-about/acord-news/2020/04/08/acord-releases-next-generation-digital-standards-to-enable-streamlined-insurance-data-exchange)
-
-##### Does ACORD provide a canonical insurance model?
-
-Yes. ACORD provides an important starting point for a canonical insurance
-model. Its Reference Architecture includes business processes, product models,
-an Information Model, a Data Model, and a Capability Model.
-
-The Information Model organizes insurance concepts and their relationships.
-The Data Model provides a logical structure generated from that Information
-Model. Therefore, the proposed MCP layer should evaluate ACORD before inventing
-a completely new policy model.
-
-However, ACORD is broader than the schema of a single `create_policy` tool. The
-project would still need to select the relevant ACORD concepts and define a
-smaller operational request and response contract for that tool.
-
-Sources:
-
-* [ACORD Reference Architecture](https://www.acord.org/standards-architecture/reference-architecture)
-* [ACORD Framework Overview](https://www.acord.org/staticfiles/reference_architecture/overview/story_html5.html)
-
-##### Does ACORD eliminate provider adapters?
-
-No. ACORD provides common insurance concepts and exchange standards, but it
-does not guarantee that every insurance company's existing API follows the
-same standard, version, workflow, or interpretation.
-
-Each company would still require an adapter that maps:
-
-1. The MCP canonical request to the company's API request.
-2. The company's API response to the MCP canonical response.
-3. The company's authentication, errors, lifecycle, and unsupported
-   capabilities.
-
-Even when two companies claim ACORD compatibility, implementation testing would
-still be necessary because they may support different subsets or versions of
-the standards.
-
-##### Access and licensing consideration
-
-Some ACORD materials are publicly described, but important standards packages
-and detailed implementation resources may require access through an ACORD
-Standards program or membership.
-
-For example, ACORD states that its Next-Generation Digital Standards are
-available for download by members of its Standards programs.
-
-Before using ACORD in a commercial universal layer, the team would therefore
-need to confirm the applicable access, membership, and licensing terms.
-
-Source:
-
-* [ACORD Next-Generation Digital Standards announcement](https://www.acord.org/ACORD-about/acord-news/2020/04/08/acord-releases-next-generation-digital-standards-to-enable-streamlined-insurance-data-exchange)
-
-##### Finding and design impact
-
-**Finding:** Insurance already has industry data models and messaging standards,
-so the project should not invent its insurance vocabulary entirely from
-scratch.
-
-**Design impact:** ACORD can provide the semantic foundation for the canonical
-model, but it cannot provide automatic compatibility with every company's API.
-The universal MCP layer still requires a tested adapter for each provider.
-
-**Preliminary conclusion:** ACORD makes the universal MCP layer more viable, but
-it does not make onboarding a new insurance company automatic.
-
----
+- [ACORD Data Standards](https://www.acord.org/standards-architecture/acord-data-standards)
+- [ACORD Property and Casualty Data Standards](https://www.acord.org/standards-architecture/acord-data-standards/Property_Casualty_Data_Standards)
+- [ACORD Reference Architecture](https://www.acord.org/standards-architecture/reference-architecture)
+- [ACORD Framework Overview](https://www.acord.org/staticfiles/reference_architecture/overview/story_html5.html)
 
 ### 2. Unified API Platforms
 
-#### What I researched
+Merge, Apideck, Nango, and Paragon demonstrate that multiple providers can be
+placed behind a common interface. Their general architecture is:
 
-I reviewed the official documentation for Merge, Apideck, Nango, and Paragon
-to understand how existing integration platforms connect one interface to many
-different provider APIs.
+1. The client uses a common model.
+2. The platform selects the correct provider integration.
+3. Provider-specific code translates the common request.
+4. The platform applies the provider's authentication and calls its API.
+5. The response is translated back into a common model.
 
-This section is based on documentation research only. I have not installed,
-executed, or tested these platforms.
-
-#### Standard architecture
-
-The platforms use the same general architecture proposed for the universal MCP
-layer:
-
-1. The client sends a request using a common model.
-2. The platform chooses the correct provider integration.
-3. Provider-specific logic translates the common request into the provider's
-   request format.
-4. The provider API is called using the appropriate authentication.
-5. The result is translated back into a common response.
-
-This reduces work for the client, but it does not remove provider-specific
-integration work from the platform.
+This reduces work for the client but does not remove provider-specific work
+from the integration platform.
 
 #### Merge
 
-Merge exposes Common Models that normalize concepts across multiple providers.
-However, not all provider fields fit inside these models.
-
-Merge provides several escape mechanisms:
-
-* **Remote Data** exposes data in the provider's original format.
-* **Field Mapping** maps provider-specific and custom fields into new fields on
-  a Common Model.
-* **Remote Field Classes** expose fields that are not mapped to the Common
-  Model.
-* **Authenticated Passthrough Requests** call the underlying provider API
-  directly when the required data or operation is not covered by a Common
-  Model.
-
-Merge's passthrough documentation states that passthrough requests use the
-specific format of the underlying provider rather than Merge's unified format.
-Merge therefore handles authentication and routing, but the customer must
-understand that provider's native API.
-
-Sources:
-
-* [Merge Field Mapping](https://docs.merge.dev/merge-unified/supplemental-data/field-mapping/overview)
-* [Merge Remote Data](https://docs.merge.dev/merge-unified/supplemental-data/remote-data)
-* [Merge Remote Field Classes](https://docs.merge.dev/merge-unified/supplemental-data/remote-field-classes/remote-field-classes)
-* [Merge Authenticated Passthrough Requests](https://docs.merge.dev/merge-unified/supplemental-data/passthrough-request/overview)
+Merge exposes Common Models and supplements them with Remote Data, Field
+Mapping, Remote Field Classes, and Authenticated Passthrough Requests. These
+features show that a common model does not contain every provider field or
+operation.
 
 #### Apideck
 
-Apideck provides Unified APIs that map different providers in the same category
-to common resources and operations.
-
-Apideck also provides a Proxy API. Its documentation explains that this API can
-call a connector-native endpoint when the unified resource does not expose the
-required field, endpoint, or operation.
-
-Therefore, Apideck's common API does not cover every provider capability. When
-a feature falls outside the unified model, the caller uses the provider's
-native request format through the proxy.
-
-Sources:
-
-* [Apideck API Integrations](https://www.apideck.com/api-integrations)
-* [Apideck Proxy API guide](https://developers.apideck.com/guides/proxy-api-guide)
-* [Apideck Unified Pass Through](https://developers.apideck.com/guides/pass-through)
+Apideck exposes Unified APIs and a Proxy API. The Proxy API is used when a
+provider field, endpoint, or operation is not available through the unified
+resource. The caller then uses the provider's native API format.
 
 #### Nango
 
-Nango uses a code-first approach. The developer defines the common model and
-operations required by the product. A provider-specific function is then
-implemented for each external API to translate data to and from that model.
-
-Nango therefore provides infrastructure and reusable integration tooling, but
-it does not claim that one schema can be generated automatically for every
-provider. Its official documentation explicitly describes provider-specific
-functions behind a stable interface.
-
-Nango also handles shared integration concerns such as authorization,
-execution, and observability. Nevertheless, developers still own the mapping
-and provider-specific behavior.
-
-Sources:
-
-* [Nango: Build a unified API](https://nango.dev/docs/getting-started/use-cases/unified-apis)
-* [Nango Unified APIs with functions](https://nango.dev/docs/guides/functions/unified-apis)
-* [Introduction to Nango](https://nango.dev/docs/getting-started/intro-to-nango)
+Nango uses a code-first model in which developers define common operations and
+implement provider-specific functions behind them. It supplies integration
+infrastructure, authorization, execution, and observability, but developers
+still own the provider mapping and behavior.
 
 #### Paragon
 
-Paragon is closer to an embedded integration platform than a fixed unified data
-model. It provides prebuilt integrations, workflows, an SDK, and a Proxy API.
+Paragon provides embedded integrations, workflows, custom integrations, field
+mapping, and a Proxy API. Its proxy handles access to a connected account while
+the request still follows the provider's native API.
 
-Paragon's Proxy API allows an application to call any method of a connected
-third-party provider. Paragon manages access to the connected account, but the
-request still follows the provider's native API.
+#### Unified API Finding
 
-Paragon also supports custom integrations and custom field mapping. This
-indicates that prebuilt actions cannot cover every provider or customer
-requirement.
+The unified API market demonstrates that the proposed architecture is viable
+inside a defined business domain. It also demonstrates that provider-specific
+logic cannot be eliminated. Mature products use a combination of:
 
-Sources:
+- Common models
+- Provider connectors
+- Custom field mapping
+- Access to raw provider data
+- Provider-specific functions
+- Proxy or passthrough requests
 
-* [Paragon Proxy API](https://docs.useparagon.com/apis/proxy)
-* [Paragon Custom Integrations](https://docs.useparagon.com/resources/custom-integrations)
-* [Paragon Custom Field Mapping](https://docs.useparagon.com/workflows/advanced-techniques/implementing-custom-field-mapping)
-
-#### Are provider adapters generated automatically?
-
-The evidence does not support the claim that these platforms can automatically
-create a complete production integration from any arbitrary API.
-
-Nango states most clearly that provider-specific functions translate between
-each provider API and the common model. Merge and Apideck expose predefined
-connectors and common models, but their field-mapping and passthrough features
-demonstrate that provider differences still require explicit handling.
-
-Code generation or AI may accelerate the first implementation, but a human must
-still decide:
-
-* Which provider fields correspond to the common model
-* How required provider-only fields are supplied
-* How values and status codes are translated
-* Which errors can be retried
-* How authentication and permissions are configured
-* How asynchronous operations and webhooks behave
-* Which provider capabilities are unsupported
-* How the adapter is tested and maintained
-
-#### How are provider-only fields handled?
-
-Existing platforms use a combination of:
-
-1. Common fields for functionality shared across providers.
-2. Custom or remote field mapping.
-3. Access to raw provider data.
-4. Provider-specific functions.
-5. Passthrough or proxy calls for unsupported operations.
-
-This is more practical than forcing every provider feature into one universal
-schema.
-
-#### What is a passthrough endpoint?
-
-A passthrough endpoint sends an authenticated request through the integration
-platform to the underlying provider's native API.
-
-It is needed when the common API does not support a provider-specific field,
-endpoint, or operation. The platform can still supply authentication and
-routing, but the caller must use the provider's own URL, parameters, payload,
-and response format.
-
-Passthrough is therefore an escape hatch from the common model.
-
-#### Main finding
-
-The unified API market proves that a common integration layer is viable within
-a defined business domain. However, these products do not eliminate
-provider-specific work.
-
-They move that work into maintained connectors, mapping rules, custom fields,
-provider functions, and passthrough endpoints.
-
-The fact that mature platforms provide passthrough access is evidence that no
-single canonical model preserves every feature of every provider.
-
-#### Design implication for the universal MCP layer
-
-The proposed MCP layer should copy this hybrid design:
-
-* A canonical model for common operations
-* One tested adapter per provider
-* Capability discovery for provider differences
-* Optional provider-specific extension fields
-* A controlled passthrough mechanism for unsupported advanced functionality
-
-The system is therefore not “bring any API and automatically receive a complete
-MCP integration.” Each new company will still require analysis, mapping,
-testing, and possibly custom code.
-
----
-
-### 3. Generating MCP Servers from OpenAPI Specifications
-
-#### What I researched
-
-I reviewed documentation for OpenAPI, FastMCP, Speakeasy, Stainless, and
-OpenAPI-to-MCP server projects.
-
-This section is based on documentation research only. I have not yet generated
-or executed an MCP server from an OpenAPI specification.
-
-#### What OpenAPI provides
-
-OpenAPI is a standard, language-independent description of an HTTP API. An
-OpenAPI document can describe:
-
-* API endpoints and HTTP methods
-* Request parameters
-* Request and response schemas
-* Authentication schemes
-* Operation names and descriptions
-* Expected response codes
-
-Because this information resembles an MCP tool definition, an OpenAPI document
-can be used to generate MCP tools automatically.
-
-Source:
-
-* [OpenAPI Specification](https://github.com/OAI/OpenAPI-Specification)
-
-#### FastMCP OpenAPI support
-
-FastMCP can create an MCP server from an existing OpenAPI specification using
-`FastMCP.from_openapi()`.
-
-By default, FastMCP converts every endpoint in the specification into an MCP
-tool. Developers can customize the result using route mappings, including
-rules that exclude internal or unsuitable endpoints.
-
-FastMCP's documentation warns that generated servers are most useful for
-bootstrapping and prototyping. It states that language models perform better
-with curated MCP servers than with automatically converted APIs, particularly
-when the API contains many endpoints and parameters.
+A passthrough endpoint is an escape hatch that sends an authenticated request
+to the underlying provider using its native format. It is useful for advanced
+functionality outside the canonical model but should not become the normal
+integration path.
 
 Sources:
 
-* [FastMCP OpenAPI integration](https://gofastmcp.com/integrations/openapi)
-* [FastMCP and FastAPI integration](https://gofastmcp.com/integrations/fastapi)
+- [Merge Field Mapping](https://docs.merge.dev/merge-unified/supplemental-data/field-mapping/overview)
+- [Merge Remote Data](https://docs.merge.dev/merge-unified/supplemental-data/remote-data)
+- [Merge Authenticated Passthrough Requests](https://docs.merge.dev/merge-unified/supplemental-data/passthrough-request/overview)
+- [Apideck Proxy API](https://developers.apideck.com/guides/proxy-api-guide)
+- [Nango Unified APIs](https://nango.dev/docs/getting-started/use-cases/unified-apis)
+- [Paragon Proxy API](https://docs.useparagon.com/apis/proxy)
 
-#### Speakeasy
+### 3. Generating MCP Servers from OpenAPI
 
-Speakeasy explains that an OpenAPI document contains enough structural
-information to generate a functioning MCP server. Endpoint paths become tools,
-request schemas become tool inputs, and response schemas describe the returned
-data.
+OpenAPI describes the mechanical structure of an HTTP API, including paths,
+methods, parameters, request bodies, response schemas, and authentication
+schemes. This makes it useful for generating an initial MCP server or tool
+surface.
 
-However, Speakeasy also identifies limits to automatic generation. The quality
-of the generated tools depends heavily on the quality of the OpenAPI document.
-Weak operation names, vague descriptions, missing examples, and unclear
-parameter documentation produce tools that are difficult for a model to select
-and use correctly.
+Tools such as FastMCP and commercial generators can reduce boilerplate by
+turning OpenAPI operations into tools. Generation can help with:
 
-Source:
+- Tool names and descriptions
+- Input schemas
+- HTTP method and path selection
+- Basic request serialization
+- Basic response typing
 
-* [Speakeasy: Generating MCP tools from OpenAPI](https://www.speakeasy.com/mcp/tool-design/generate-mcp-tools-from-openapi/)
+Automatic generation does not solve the semantic integration problem. An
+OpenAPI document does not reliably explain:
 
-#### Stainless
+- Which fields from two providers have the same business meaning
+- Which provider statuses should map to one canonical status
+- Whether an accepted request means completed, queued, or pending
+- Which errors are retryable
+- How idempotency should work
+- Which provider capabilities are equivalent
+- How asynchronous callbacks should be normalized
+- Which fields are legally or operationally required
 
-Stainless generates SDKs, documentation, and MCP servers from OpenAPI
-specifications. It also provides configuration and transformation features for
-correcting or customizing the source specification.
+A human would not want to ship a raw generated server unchanged when it
+contains hundreds of low-level endpoints, unclear tool descriptions,
+provider-native errors, or unsafe write operations.
 
-The existence of these transformations is significant. Automatic generation
-can reproduce the structure described by an API specification, but teams may
-still need to correct types, add missing required fields, rename properties,
-exclude operations, and customize authentication or methods.
-
-Sources:
-
-* [Stainless](https://www.stainless.com/)
-* [Stainless transforms](https://www.stainless.com/changelog/transforms/)
-* [Stainless MCP resources](https://www.stainless.com/mcp/resources/)
-
-#### Open-source OpenAPI-to-MCP servers
-
-Open-source projects can dynamically expose OpenAPI operations as MCP tools.
-
-For example, the AWS Labs OpenAPI MCP Server supports automatic tool
-generation, route mapping, tag-based filtering, multiple specifications,
-authentication configuration, and enriched tool descriptions.
-
-These features show that conversion is technically straightforward, but they
-also show that configuration and curation remain necessary. Teams must decide
-which endpoints should be available to the model and which must be hidden.
-
-Sources:
-
-* [AWS Labs OpenAPI MCP Server](https://awslabs.github.io/mcp/servers/openapi-mcp-server)
-* [OpenAPI MCP Server](https://github.com/ivo-toby/mcp-openapi-server)
-
-#### How far does automatic generation get?
-
-Automatic generation can provide:
-
-1. A running MCP server scaffold.
-2. One MCP tool for each selected API operation.
-3. Input schemas based on API parameters and request bodies.
-4. HTTP request forwarding.
-5. Basic authentication forwarding.
-6. Basic response handling.
-7. A repeatable way to regenerate the server when the specification changes.
-
-This is useful for prototypes and for APIs that are small, well documented,
-consistent, and designed for external consumers.
-
-#### What automatic generation does not solve
-
-OpenAPI describes the technical contract of one API. It does not automatically
-understand how one company's business concepts correspond to another company's
-concepts.
-
-Generation does not decide:
-
-* Whether `customer_name` and `policy_holder` mean the same thing
-* Which provider-only fields belong in the canonical model
-* How to translate values, statuses, and error meanings
-* Whether an operation is safe for autonomous model use
-* How multiple API calls form one business workflow
-* How asynchronous operations and webhooks should be represented
-* Which errors should be retried
-* How idempotency should work across providers
-* How three different APIs should become one `create_policy` operation
-
-Therefore, generating three MCP servers from three API specifications would
-normally produce three sets of provider-native tools. It would not
-automatically produce one correct canonical `create_policy` tool.
-
-#### What a human would not want to ship unchanged
-
-A direct conversion may expose every API endpoint as a tool, including
-administrative, dangerous, irrelevant, or low-level operations.
-
-It may also produce:
-
-* Too many tools for reliable model selection
-* Long or awkward tool names based on endpoint operation IDs
-* Vague descriptions copied from weak API documentation
-* Large and complicated parameter schemas
-* Provider-native responses instead of a canonical response
-* Technical errors that do not help the model recover
-* Tools that expose sensitive operations without adequate controls
-* Separate low-level calls where the user expects one business operation
-
-A production implementation therefore requires tool selection, clearer
-descriptions, access controls, error design, workflow design, tests, and
-monitoring.
-
-#### Main finding
-
-OpenAPI-to-MCP generation is valuable scaffolding, but it is not an automatic
-unification solution.
-
-It can reduce the mechanical work required to expose one company's API through
-MCP. It cannot remove the semantic and business work required to translate
-several different company APIs into one reliable canonical tool.
-
-#### Design implication
-
-The universal layer can use OpenAPI generation to accelerate development of
-provider clients or initial MCP tools. However, the production architecture
-still requires:
-
-* A deliberately designed canonical schema
-* A curated MCP tool surface
-* One reviewed adapter per provider
-* Provider-specific workflow and error handling
-* Security controls
-* Contract and model-behavior tests
-
----
+**Finding:** OpenAPI generation can accelerate the transport layer and create
+an initial adapter skeleton. It cannot generate a complete, trustworthy
+canonical integration without human design, review, and testing.
 
 ### 4. Traditional Integration Patterns
 
-#### What I researched
-
-I reviewed established software integration patterns and platforms to understand
-how they relate to the proposed universal MCP layer.
-
-This section is based on documentation research only. I have not implemented
-Apache Camel or MuleSoft as part of the spike.
+The proposed layer is a modern application of established integration
+patterns.
 
 #### Adapter Pattern
 
-The Adapter Pattern allows one interface to work with another system that has
-an incompatible interface.
+Each provider adapter converts the canonical interface into the provider's
+incompatible interface and converts the provider response back into the
+canonical model.
 
-In this project, every provider adapter accepts the canonical request and
-translates it into the provider's API format. It then translates the provider's
-response back into the canonical response.
+#### Anti-Corruption Layer
 
-For example:
+The canonical model prevents provider-specific terminology and behavior from
+leaking throughout the client application. Provider changes are contained
+inside their adapters.
 
-```text
-Canonical SMS request
-        |
-        v
-Twilio adapter
-        |
-        v
-Twilio API requestThe research completed so far supports the initial prediction that a universal
-MCP layer is viable only under specific conditions.
+#### Enterprise Service Bus and Integration Platforms
 
-ACORD can provide a common insurance vocabulary and data-model foundation.
-Existing unified API companies demonstrate that many providers can be placed
-behind one interface. OpenAPI generation can also reduce the mechanical effort
-required to expose an existing API through MCP.
+Platforms such as Apache Camel and MuleSoft provide routing, transformation,
+connectors, retries, monitoring, and orchestration. They reduce repeated
+infrastructure work, but they still require provider mappings and operational
+configuration.
 
-However, none of these approaches completely eliminates provider-specific
-integration work.
+#### Part 1 Conclusion
 
-A realistic architecture requires:
-
-1. A domain-specific canonical model.
-2. One adapter per provider.
-3. Provider capability metadata.
-4. Custom or extension fields.
-5. A passthrough mechanism for unsupported features.
-6. Human review and testing.
-7. Continuous monitoring for provider API changes.
-
-The final conclusion will be made after building and testing the working spike.
+Research supports the initial prediction. A common layer is practical when it
+has a deliberately designed domain model and curated tool surface. It still
+requires one reviewed adapter per provider, provider-specific workflow and
+error handling, security controls, tests, and maintenance.
 
 ---
 
 ## Part 2 — Working Spike
 
-**Status:** Not yet started.
+**Status:** Completed.
 
-The spike will use three publicly documented APIs that perform the same action
-using different request and response structures.
+### Objective and Scope
 
-The selected API family, canonical schema, adapters, tests, and execution
-results will be documented here.
+The spike tested whether one canonical MCP tool could route the same business
+operation to three providers with different API structures.
 
-This section will clearly separate:
+The selected operation was sending an SMS. The providers were:
 
-* Functionality that was implemented and executed
-* Transformations that were tested locally
-* Behavior that was mapped from documentation only
-* Calls that were not sent to live provider APIs
+- Twilio
+- Vonage
+- MessageBird
+
+The spike used simulation rather than live provider credentials because the
+main question was whether canonical modelling, translation, routing, and MCP
+invocation could work across different providers.
+
+### Implemented Components
+
+The implementation includes:
+
+- Canonical `SMSRequest`, `SMSResponse`, and `SMSError` schemas
+- Twilio, Vonage, and MessageBird adapters
+- One shared MCP tool named `send_sms`
+- A discovery tool named `get_requirements`
+- Automated adapter and routing tests
+- An MCP stdio smoke test
+
+Each adapter performs two transformations:
+
+```text
+Canonical request -> Provider-specific request
+Provider response -> Canonical response
+```
+
+The common request contains the provider, recipient, sender, message, and an
+optional client reference. Changing the provider selects a different adapter
+without changing the core operation.
+
+### Executed Behavior
+
+The following behavior was executed locally:
+
+- Canonical request validation
+- Invalid telephone-number rejection
+- Request translation for all three providers
+- Response translation for all three providers
+- Provider routing through `send_sms`
+- Status and error normalization
+- Structured validation errors
+- MCP server startup over stdio
+- MCP client connection and tool discovery
+- MCP tool invocation and canonical response retrieval
+
+Tests were executed with:
+
+```powershell
+python -m pytest -v
+```
+
+The end-to-end smoke test was executed with:
+
+```powershell
+python scripts\smoke_test.py
+```
+
+The smoke test discovered `send_sms`, invoked it with the Twilio provider, and
+received a successful simulated canonical response. The saved evidence is in
+`docs/smoke_test_output.txt`.
+
+### Provider Differences Observed
+
+| Canonical concept | Twilio | Vonage | MessageBird |
+|---|---|---|---|
+| Recipient | `To` | `to` | `recipients` |
+| Sender | `From` | `from` | `originator` |
+| Message | `Body` | `text` | `body` |
+| Message ID | `sid` | `message-id` | `id` |
+
+Twilio and Vonage use form-style request fields in the spike, while
+MessageBird uses a JSON structure containing a recipient list. Vonage returns
+a `messages` array even for one message. MessageBird nests recipient status
+inside a recipients object. Vonage uses numeric status codes while the other
+providers primarily use textual statuses.
+
+Simple differences such as field names, endpoint addresses, and some status
+mappings can be represented declaratively. Nested arrays, empty responses,
+numeric error interpretation, retry decisions, and lifecycle differences
+require custom code.
+
+### Execution Boundary
+
+No live SMS was sent. The spike did not test real provider authentication,
+billing, rate limits, outages, regulatory restrictions, delivery callbacks,
+or final handset delivery. Requests and responses were based on documented
+structures and example payloads.
+
+### Spike Finding
+
+The spike demonstrated that one MCP tool can accept a canonical SMS request,
+route it through three provider adapters, and return a normalized response.
+It also demonstrated that onboarding is not automatic. Every provider requires
+documentation review, field mapping, authentication configuration,
+translation logic, tests, and maintenance.
 
 ---
 
 ## Part 3 — Where the Universal Layer Breaks
 
-**Status:** To be completed after the spike.
+### Evidence Basis
 
-The assessment will provide a specific answer for each of the following issues.
+This section combines findings from the implemented SMS spike, executed tests,
+MCP smoke test, provider documentation, and unified API research. The spike did
+not test live authentication, real webhooks, billing, rate limits, or provider
+outages.
 
-### 1. Required fields needed by only one provider
+### 1. Required Fields Needed by Only One Provider
 
-To be completed.
+One provider may require a campaign identifier, registered sender, agent
+number, consent identifier, risk classification, or document reference that
+other providers do not require.
 
-### 2. Fields with the same name but different meanings
+The canonical schema can make some fields optional, but including every
+provider-specific field would make it large and confusing. The recommended
+solution has three levels:
 
-To be completed.
+1. Common canonical fields
+2. Provider requirement and capability discovery
+3. Controlled provider-specific extensions
 
-### 3. Different authentication methods
+The selected adapter must validate its additional requirements before making
+the provider call. A few simple provider-only fields may add approximately
+**1–3 hours** to onboarding; conditional rules can require considerably more.
 
-To be completed.
+**Finding:** Provider-only fields can be supported, but they cannot always be
+hidden from the model or calling application.
 
-### 4. Synchronous responses versus asynchronous workflows
+### 2. Fields with the Same Name but Different Meanings
 
-To be completed.
+A field such as `status` may mean accepted, queued, sent to a carrier,
+delivered, rejected, or completed depending on the provider. Direct field-name
+mapping would create false equivalence.
 
-### 5. Different error formats and retry behavior
+The canonical model needs precisely defined statuses and must retain the
+original provider status for diagnostics. Every provider status requires a
+reviewed mapping and tests. Status mapping may add approximately **1–3 hours
+per provider**, with more work for complex lifecycle models.
 
-To be completed.
+**Finding:** Matching field names do not prove matching business meaning.
 
-### 6. Idempotency and duplicate model calls
+### 3. Different Authentication Methods
 
-To be completed.
+Providers may use API keys, Basic authentication, OAuth 2.0, signed requests,
+mutual TLS, rotating tokens, certificates, or IP allowlists.
 
-### 7. Provider API drift
+Authentication belongs in the provider adapter or credential subsystem, not
+in the canonical business schema. Credentials must be stored securely and
+resolved using provider and tenant context. OAuth refresh, certificate
+rotation, and scoped access require production-grade lifecycle management.
 
-To be completed.
+Simple API-key authentication may add **2–4 hours**. OAuth, signed requests,
+or mutual TLS can add **8–24 hours or more**.
 
-### 8. Capability gaps between providers
+**Finding:** Authentication can be hidden from the MCP caller, but not from the
+integration implementation and operations team.
 
-To be completed.
+### 4. Synchronous Responses versus Asynchronous Workflows
 
-### Canonical model trade-off
+One provider may return a final result immediately while another returns an
+accepted or queued response followed by a webhook or polling result.
 
-The final assessment will determine whether the common schema becomes:
+The canonical lifecycle should use explicit states such as `pending`,
+`succeeded`, `failed`, and `unknown`. Asynchronous providers also require
+correlation identifiers, webhook verification or polling, state persistence,
+timeouts, and duplicate-event handling.
 
-* A least-common-denominator model that works everywhere but exposes only basic
-  features
-* A superset model containing many fields that are unsupported by some
-  providers
-* A hybrid model combining common fields, capability discovery, extensions,
-  and passthrough access
+The SMS spike already showed that initial provider acceptance does not prove
+final delivery. Adding a simple asynchronous workflow may require **8–16
+hours**, while complex workflows require more.
+
+**Finding:** The canonical operation can hide transport differences, but it
+cannot pretend asynchronous work is immediately complete.
+
+### 5. Different Error Formats and Retry Behavior
+
+Providers return errors using different HTTP statuses, codes, messages,
+response bodies, and retry headers. Some errors are safe to retry; others
+require corrected input or human action.
+
+The layer should normalize errors into a stable structure containing a code,
+message, retryable flag, provider code, provider message, and details. It
+should preserve the original provider information for troubleshooting.
+
+Error normalization and retry classification may add **3–6 hours per
+provider**.
+
+**Finding:** Normalized errors are essential for reliable LLM behavior, but
+retryability must be decided using provider knowledge rather than guessed from
+an HTTP status alone.
+
+### 6. Idempotency and Duplicate Model Calls
+
+An LLM or client may repeat a write operation because of a timeout, retry, or
+uncertain response. Repeating operations such as policy creation, payment, or
+SMS sending can create real cost and harm.
+
+The canonical request should support an idempotency or client-reference key.
+The layer should store the result of completed requests and return the same
+result for duplicates. Where providers offer native idempotency keys, adapters
+should use them. Otherwise, the layer must implement its own deduplication.
+
+Basic protection may add **4–8 hours**, with additional storage and operations
+work in a distributed production system.
+
+**Finding:** Idempotency is a platform responsibility and is especially
+important when the caller is an LLM.
+
+### 7. Provider API Drift
+
+Provider APIs change over time. Fields may become required, statuses may be
+added, authentication can change, endpoints may be deprecated, and behavior
+may change without a clean schema difference.
+
+The layer requires contract tests, scheduled health checks, changelog
+monitoring, schema validation, alerts for unknown statuses and errors, recorded
+API versions, and clear ownership of each adapter.
+
+Initial drift protection may add **3–6 hours per provider**. A reasonable early
+maintenance estimate is **1–4 hours per provider per month**, excluding major
+breaking changes.
+
+**Finding:** Adapters are maintained products, not one-time generated files.
+
+### 8. Capability Gaps between Providers
+
+Providers may not support the same features. In the spike, MessageBird's API
+can represent multiple recipients while the canonical operation deliberately
+supports one recipient. In insurance, providers may differ in coverage types,
+policy amendments, international coverage, document upload, cancellation, or
+payment plans.
+
+Capability differences should be exposed through provider metadata. An
+unsupported request must return a clear `UNSUPPORTED_CAPABILITY` error and
+must never silently drop fields.
+
+A basic capability matrix may add **2–4 hours per provider**. Conditional
+capabilities require more rules and testing.
+
+**Finding:** Supported by the canonical tool does not mean supported by every
+provider.
+
+### Canonical-Model Decision
+
+A least-common-denominator model is simple and predictable but may remove
+valuable features. A superset model preserves more features but becomes large,
+conditional, and difficult for models to use correctly.
+
+The recommended hybrid is:
+
+1. A stable canonical core
+2. Capability discovery
+3. Optional provider-specific extensions
+4. Explicit unsupported-capability errors
+5. Controlled passthrough for exceptional cases
+
+### Part 3 Conclusion
+
+The eight failure cases do not make the layer impossible. They show that its
+promise cannot be:
+
+```text
+Give us any API and receive a complete integration automatically.
+```
+
+A more accurate promise is:
+
+```text
+Give us a documented API and provider access. We will onboard it into a
+domain-specific MCP layer using a reusable framework, explicit mappings,
+provider-specific logic, and tests.
+```
 
 ---
 
-## Part 4 — Does an AI Model Change the Integration Problem?
+## Part 4 — LLM Consumption and Tool Discovery
 
-**Status:** Experiments not yet executed.
+The existing `mcp-probe-groq` project provides the LLM host required for this
+part of the assessment. A new host is unnecessary because it already connects
+a Groq-hosted model to an MCP server, discovers the available tools, sends
+their schemas to the model, executes tool calls, and returns results to the
+model.
 
-The experiments will test:
+### Tool Discovery
 
-1. Whether a `get_requirements(provider)` discovery tool helps the model supply
-   provider-specific fields.
-2. Whether the model can recover from a structured missing-field error and
-   retry correctly.
-3. Whether one tool with a `provider` parameter performs better or worse than
-   three provider-specific tools.
+The MCP client discovers tools from the server rather than relying on a
+hard-coded interface. The universal SMS server exposes:
 
-The actual prompts, tool calls, results, and failures will be preserved in the
-repository.
+- `get_requirements`
+- `send_sms`
+
+`get_requirements` provides provider-specific required fields, sender rules,
+recipient format, lifecycle information, and capabilities. This lets the
+`send_sms` schema remain stable while provider-specific guidance remains
+available when needed.
+
+### Recovery from Missing Information
+
+The canonical layer returns structured validation errors rather than exposing
+unstructured provider errors. A structured error includes a stable code,
+human-readable message, validation details, and retryability information.
+
+An LLM can use that response to correct information already available in the
+conversation or ask the user for a missing value. It should not invent missing
+business information.
+
+### Shared Tool versus Provider-Specific Tools
+
+One shared `send_sms` tool is preferable for genuinely common SMS behavior. It
+gives the model a smaller and more stable tool surface, while the validated
+`provider` argument selects the correct adapter.
+
+Separate provider tools are appropriate only when a provider exposes an
+important operation that cannot be represented safely by the canonical model.
+Provider-specific extensions or dedicated tools should handle those cases
+instead of making the common schema excessively large.
+
+### Part 4 Finding
+
+An LLM can consume the universal layer through normal MCP discovery and tool
+invocation. MCP solves exposure and discovery, but it does not eliminate
+provider differences.
+
+Reliable model behavior depends on clear tool descriptions, strict schemas,
+requirement discovery, structured errors, capability metadata, idempotency,
+and a limited tool surface.
 
 ---
 
-## Cost Model
+## Cost and Onboarding Estimate
 
-**Status:** Initial estimate only.
+The initial **24–40 hour** estimate remains reasonable for onboarding a
+moderately complex provider with usable documentation.
 
-The initial estimate is **24–40 working hours** to onboard one additional
-company. This estimate will be revised after completing the spike.
+| Activity | Typical effort |
+|---|---:|
+| API documentation and workflow review | 4–6 hours |
+| Canonical field and status mapping | 4–6 hours |
+| Authentication and configuration | 2–6 hours |
+| Adapter implementation | 6–10 hours |
+| Error and retry normalization | 3–5 hours |
+| Tests and fixtures | 4–6 hours |
+| Documentation and review | 1–3 hours |
+| **Estimated total** | **24–42 hours** |
 
-The final cost model will separately estimate:
+The estimate is close to the initial 24–40 hour prediction; the upper bound is
+rounded by the range of individual activities. Complex OAuth, certificates,
+webhooks, regulatory rules, poor documentation, or large capability gaps can
+increase the total substantially.
 
-* API documentation review
-* Canonical field mapping
-* Adapter implementation
-* Authentication configuration
-* Response normalization
-* Error and retry mapping
-* Webhook or asynchronous workflow handling
-* Contract tests
-* Model behavior tests
-* Documentation
-* Ongoing maintenance and drift monitoring
+Reusable schemas, adapter templates, authentication components, test helpers,
+and discovery conventions should reduce later onboarding effort, but they will
+not remove provider analysis and validation.
+
+Ongoing maintenance should be budgeted separately. A starting allowance of
+**1–4 hours per provider per month** is reasonable, with additional effort for
+breaking changes or incidents.
 
 ---
 
 ## Final Recommendation
 
-**Status:** To be completed after the spike.**
+Proceed with the universal MCP layer as a **domain-specific, adapter-based
+platform**, not as a fully automatic integration generator.
 
-The final recommendation will choose one of the following without ending in
-“it depends”:
+The layer should promise a stable common interface for a defined business
+operation. It should not promise that an arbitrary provider API can be
+integrated without analysis, mapping, provider-specific code, testing, and
+maintenance.
 
-* Viable
-* Viable under explicitly named conditions
-* Not viable
+The recommended production architecture is:
 
-The recommendation will include the required conditions and an estimated
-onboarding cost for company number four.
+1. A stable canonical core for common operations
+2. One reviewed adapter for each provider
+3. Provider requirement and capability discovery
+4. Structured validation and provider errors
+5. Idempotency protection for write operations
+6. Support for asynchronous workflows
+7. Optional provider-specific extensions
+8. Controlled passthrough for exceptional functionality
+9. Contract and regression testing for provider drift
+10. Monitoring and clear ownership of every adapter
+
+The assessment confirms the initial prediction: the concept is **viable under
+specific conditions**. The original estimate of **24–40 working hours per
+additional provider** remains a reasonable planning baseline, but it should be
+increased for providers with complex authentication, asynchronous processes,
+regulatory requirements, poor documentation, or major capability differences.
