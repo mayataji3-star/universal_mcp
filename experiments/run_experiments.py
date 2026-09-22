@@ -12,6 +12,12 @@ from groq import AsyncGroq
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
